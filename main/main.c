@@ -77,6 +77,32 @@ static bool wifi_connected_now(void)
     return esp_wifi_sta_get_ap_info(&ap_info) == ESP_OK;
 }
 
+static void wifi_ip_string_now(char *out, size_t out_len)
+{
+    if (!out || out_len == 0) {
+        return;
+    }
+
+    out[0] = '\0';
+    if (!USER_ENABLE_BACNET_IP) {
+        snprintf(out, out_len, "No IP");
+        return;
+    }
+
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (!netif) {
+        snprintf(out, out_len, "No IP");
+        return;
+    }
+
+    esp_netif_ip_info_t ip_info = {0};
+    if (esp_netif_get_ip_info(netif, &ip_info) == ESP_OK && ip_info.ip.addr != 0) {
+        snprintf(out, out_len, IPSTR, IP2STR(&ip_info.ip));
+    } else {
+        snprintf(out, out_len, "No IP");
+    }
+}
+
 static void bacnet_log_whois_iam(const uint8_t *apdu, int apdu_len, const char *link)
 {
     if (!apdu || apdu_len < 2) {
@@ -425,7 +451,10 @@ void app_main(void)
             float av2 = Analog_Value_Present_Value(2);
             float av3 = Analog_Value_Present_Value(3);
             float av4 = Analog_Value_Present_Value(4);
+            char ip_text[20];
+            wifi_ip_string_now(ip_text, sizeof(ip_text));
             display_update_values(av1, av2, av3, av4);
+            display_update_footer(USER_BACNET_DEVICE_INSTANCE, ip_text);
         }
         
         vTaskDelay(pdMS_TO_TICKS(1000));

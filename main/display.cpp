@@ -13,22 +13,31 @@ static TFT_eSPI tft = TFT_eSPI();
 #define DISP_WIDTH 320
 #define DISP_HEIGHT 170
 
+// Global horizontal guard offset for panels that clip at the left edge.
+#define DISP_GLOBAL_X_OFFSET 8
+
 // Slight inset to keep text away from the physical left edge.
-#define DISP_TEXT_X 41
+#define DISP_TEXT_X (41 + DISP_GLOBAL_X_OFFSET)
 
 // Top inset to keep the first row fully visible.
 #define DISP_TEXT_Y 20
 
 // Four-row layout for Temp, humidity, PM2.5, and VOC.
 #define DISP_ROW_SPACING 25
-#define DISP_VALUE_X 105
+#define DISP_VALUE_X (105 + DISP_GLOBAL_X_OFFSET)
 
 // Display update region constants (avoid recalculation on every refresh)
-#define VALUE_X         105
+#define VALUE_X         (115 + DISP_GLOBAL_X_OFFSET)
 #define VALUE_Y         20
 #define VALUE_WIDTH     135
 #define VALUE_HEIGHT    24
 #define ROW_SPACING     25
+
+// Footer at the bottom of the landscape display for BACnet ID and IPv4.
+#define FOOTER_Y        126
+#define FOOTER_X        DISP_TEXT_X
+#define FOOTER_WIDTH    DISP_WIDTH
+#define FOOTER_HEIGHT   16
 
 extern "C" void display_init(void)
 {
@@ -73,9 +82,31 @@ extern "C" void display_update_values(float av1, float av2, float av3, float av4
     const float values[4] = { av1, av2, av3, av4 };
     const char *formats[4] = { "%.1f", "%.1f", "%.0f", "%.0f" };
 
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(2);
+
     for (int i = 0; i < 4; i++) {
         tft.setCursor(VALUE_X, VALUE_Y + i * ROW_SPACING);
         snprintf(buf, sizeof(buf), formats[i], values[i]);
         tft.print(buf);
     }
+}
+
+extern "C" void display_update_footer(unsigned int bacnet_device_id, const char *ip_address)
+{
+    char footer_text[32];
+    (void)ip_address;
+
+    snprintf(footer_text, sizeof(footer_text), "BACnet ID: %u", bacnet_device_id);
+
+    tft.fillRect(0, FOOTER_Y, FOOTER_WIDTH, FOOTER_HEIGHT, TFT_BLACK);
+    tft.setTextColor(TFT_BLUE, TFT_BLACK);
+    tft.setTextSize(2);
+
+    tft.setCursor(FOOTER_X, FOOTER_Y);
+    tft.print(footer_text);
+
+    // Restore primary style used for value rows.
+    tft.setTextColor(TFT_WHITE, TFT_BLACK);
+    tft.setTextSize(2);
 }

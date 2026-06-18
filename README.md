@@ -28,7 +28,7 @@ You can easily add extra BACnet objects and map them to ESP32 GPIO for analog an
 
 
 ## Photos
-![Device](docs/images/02.jpg)
+![Device](docs/images/01.jpg)
 ![Device](docs/images/03.jpg)
 ![Device](docs/images/04.jpg)
 ![Wiring](docs/images/ESP32-SEN54_WROM32_pinout.jpg)
