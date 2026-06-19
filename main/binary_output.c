@@ -146,29 +146,41 @@ void bacnet_create_binary_outputs(void) {
     ESP_LOGI(TAG, "Created %zu Binary Output objects", num_instances);
 }
 
-/* No-op: BO1 no longer drives a physical GPIO */
-void bacnet_bo1_gpio_update(uint8_t state)
-{
-    (void)state;
-}
-
-/* Task to monitor BO1 for value changes (no physical GPIO action) */
-static uint8_t last_bo1_state = BINARY_INACTIVE;
-
-static void bo1_gpio_sync_task(void *pvParameters)
+/* Monitor all Binary Outputs for changes and log them. This task only
+ * observes BACnet BO present values and logs transitions to ACTIVE/INACTIVE.
+ */
+static void bo_gpio_monitor_task(void *pvParameters)
 {
     (void)pvParameters;
+    size_t num_instances = USER_BO_COUNT;
+    uint8_t *last_states = pvPortMalloc(num_instances);
+    if (!last_states) {
+        ESP_LOGE(TAG, "Failed to allocate BO monitor state buffer");
+        vTaskDelete(NULL);
+        return;
+    }
+    for (size_t i = 0; i < num_instances; i++) {
+        last_states[i] = (uint8_t)Binary_Output_Present_Value(USER_BO_INSTANCES[i]);
+    }
+
     while (1) {
-        last_bo1_state = Binary_Output_Present_Value(USER_BO_INSTANCES[0]);
+        for (size_t i = 0; i < num_instances; i++) {
+            uint8_t pv = (uint8_t)Binary_Output_Present_Value(USER_BO_INSTANCES[i]);
+            if (pv != last_states[i]) {
+                last_states[i] = pv;
+                ESP_LOGI(TAG, "BO%u changed to %s", (unsigned)USER_BO_INSTANCES[i],
+                         pv == BINARY_ACTIVE ? "ACTIVE" : "INACTIVE");
+            }
+        }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
 void bacnet_create_binary_outputs_with_gpio_sync(void) {
     bacnet_create_binary_outputs();
-    
-    /* Start GPIO sync task */
-    if (xTaskCreate(bo1_gpio_sync_task, "bo1_gpio_sync", 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
-        ESP_LOGE(TAG, "Failed to create BO1 GPIO sync task");
+
+    /* Start BO monitor task */
+    if (xTaskCreate(bo_gpio_monitor_task, "bo_gpio_mon", 4096, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create BO monitor task");
     }
 }

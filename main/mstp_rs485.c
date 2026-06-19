@@ -77,6 +77,11 @@ void MSTP_RS485_Init(void)
         ESP_LOGE(TAG, "UART driver install failed: %d", err);
     }
 
+    err = uart_set_mode(MSTP_UART_PORT, UART_MODE_RS485_HALF_DUPLEX);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "UART set RS485 half-duplex mode failed: %d", err);
+    }
+
     mstp_last_activity_us = esp_timer_get_time();
     mstp_uart_initialized = true;
 

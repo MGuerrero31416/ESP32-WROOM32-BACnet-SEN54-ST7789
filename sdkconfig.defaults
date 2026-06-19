@@ -1,7 +1,13 @@
-# Hardware profile: ESP32 with 4MB flash and no PSRAM
+# Hardware profile: Target board with 16MB flash and OPI PSRAM
 CONFIG_FREERTOS_HZ=1000
-CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
-# CONFIG_SPIRAM is not set
-CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE=y
-CONFIG_PARTITION_TABLE_FILENAME="partitions_singleapp_large.csv"
+# Flash size: 16MB
+# Note: sdkconfig will pick the matching espTool flash size at build time.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+# Enable PSRAM (OPI) - the exact PSRAM type may be selected in menuconfig
+CONFIG_SPIRAM=y
+# If your toolchain exposes an OPI PSRAM type option it can be enabled
+# by setting the appropriate CONFIG_SPIRAM_TYPE_* option in menuconfig.
+# Use a custom partition table: 3MB app, ~9.9MB FATFS
+CONFIG_PARTITION_TABLE_CUSTOM=y
+CONFIG_PARTITION_TABLE_FILENAME="partitions_16M_3MAPP_9_9MB_FATFS.csv"

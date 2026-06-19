@@ -3,9 +3,9 @@
 
 /* WiFi settings */
 const bool USER_ENABLE_BACNET_IP = true;
-const char USER_WIFI_SSID[] = "BACnetBridge";
-const char USER_WIFI_PASS[] = "@Pi31416";
-const bool USER_WIFI_USE_STATIC_IP = true;
+const char USER_WIFI_SSID[] = "Gato_MG_2.4G";
+const char USER_WIFI_PASS[] = "Hrt@31416";
+const bool USER_WIFI_USE_STATIC_IP = false;
 const char USER_WIFI_STATIC_IP_ADDR[] = "10.120.245.96";
 const char USER_WIFI_STATIC_IP_GATEWAY[] = "10.210.245.254";
 const char USER_WIFI_STATIC_IP_NETMASK[] = "255.255.255.0";
@@ -142,20 +142,32 @@ const float USER_AI_COV_INCREMENTS[USER_AI_COUNT] = {
     1.0f
 };
 
-const uint32_t USER_BI_INSTANCES[USER_BI_COUNT] = { 1, 2, 3, 4 };
+const uint32_t USER_BI_INSTANCES[USER_BI_COUNT] = { 1, 2, 3, 4, 5, 6, 7, 8 };
 const char *USER_BI_NAMES[USER_BI_COUNT] = {
     "BI1",
     "BI2",
     "BI3",
-    "BI4"
+    "BI4",
+    "BI5",
+    "BI6",
+    "BI7",
+    "BI8"
 };
 const char *USER_BI_DESCRIPTIONS[USER_BI_COUNT] = {
     "Binary Input 1",
     "Binary Input 2",
     "Binary Input 3",
-    "Binary Input 4"
+    "Binary Input 4",
+    "Binary Input 5",
+    "Binary Input 6",
+    "Binary Input 7",
+    "Binary Input 8"
 };
 const char *USER_BI_ACTIVE_TEXT[USER_BI_COUNT] = {
+    "ACTIVE",
+    "ACTIVE",
+    "ACTIVE",
+    "ACTIVE",
     "ACTIVE",
     "ACTIVE",
     "ACTIVE",
@@ -165,29 +177,49 @@ const char *USER_BI_INACTIVE_TEXT[USER_BI_COUNT] = {
     "INACTIVE",
     "INACTIVE",
     "INACTIVE",
+    "INACTIVE",
+    "INACTIVE",
+    "INACTIVE",
+    "INACTIVE",
     "INACTIVE"
 };
 const uint8_t USER_BI_INITIAL_VALUES[USER_BI_COUNT] = {
     BINARY_INACTIVE,
     BINARY_INACTIVE,
     BINARY_INACTIVE,
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
     BINARY_INACTIVE
 };
 
-const uint32_t USER_BO_INSTANCES[USER_BO_COUNT] = { 1, 2, 3, 4 };
+const uint32_t USER_BO_INSTANCES[USER_BO_COUNT] = { 1, 2, 3, 4, 5, 6, 7, 8 };
 const char *USER_BO_NAMES[USER_BO_COUNT] = {
     "BO1",
     "BO2",
     "BO3",
-    "BO4"
+    "BO4",
+    "BO5",
+    "BO6",
+    "BO7",
+    "BO8"
 };
 const char *USER_BO_DESCRIPTIONS[USER_BO_COUNT] = {
     "Binary Output 1",
     "Binary Output 2",
     "Binary Output 3",
-    "Binary Output 4"
+    "Binary Output 4",
+    "Binary Output 5",
+    "Binary Output 6",
+    "Binary Output 7",
+    "Binary Output 8"
 };
 const char *USER_BO_ACTIVE_TEXT[USER_BO_COUNT] = {
+    "ON",
+    "ON",
+    "ON",
+    "ON",
     "ON",
     "ON",
     "ON",
@@ -197,9 +229,17 @@ const char *USER_BO_INACTIVE_TEXT[USER_BO_COUNT] = {
     "OFF",
     "OFF",
     "OFF",
+    "OFF",
+    "OFF",
+    "OFF",
+    "OFF",
     "OFF"
 };
 const uint8_t USER_BO_INITIAL_VALUES[USER_BO_COUNT] = {
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
+    BINARY_INACTIVE,
     BINARY_INACTIVE,
     BINARY_INACTIVE,
     BINARY_INACTIVE,

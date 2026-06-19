@@ -12,6 +12,7 @@
 #include "esp_netif.h"
 #include "wifi_helper.h"
 #include "display.h"
+#include "waveshare_io.h"
 #include "analog_value.h"
 #include "binary_value.h"
 #include "analog_input.h"
@@ -20,6 +21,11 @@
 #include "sen54.h"
 #include "mstp_rs485.h"
 #include "User_Settings.h"
+#include "bacnet_io_link.h"
+
+/* Temporary: skip SEN54, TFT, and MAX485 (MS/TP) to avoid GPIO conflicts
+ * while porting to a new board. Set to 0 to re-enable peripherals. */
+#define SKIP_PERIPHERALS 1
 
 /* bacnet-stack headers */
 #include "bacnet/basic/object/device.h"
@@ -316,6 +322,7 @@ void app_main(void)
         bacnet_register_with_bbmd();
     }
 
+#if !SKIP_PERIPHERALS
     if (USER_ENABLE_BACNET_MSTP) {
         ESP_LOGI(TAG, "Initializing BACnet MS/TP");
         if (!bacnet_mstp_init()) {
@@ -327,12 +334,18 @@ void app_main(void)
             }
         }
     }
+#else
+    ESP_LOGI(TAG, "BACnet MS/TP initialization skipped (MAX485 disabled)");
+#endif
 
     if (USER_ENABLE_BACNET_IP) {
         datalink_default = datalink_bip;
-    } else if (USER_ENABLE_BACNET_MSTP) {
+    }
+#if !SKIP_PERIPHERALS
+    else if (USER_ENABLE_BACNET_MSTP) {
         datalink_default = datalink_mstp;
     }
+#endif
     if (datalink_default) {
         datalink_set(datalink_default);
     }
@@ -364,6 +377,9 @@ void app_main(void)
     bacnet_create_binary_inputs();
     bacnet_create_binary_outputs_with_gpio_sync();  /* Create BO with GPIO sync task */
 
+    ESP_LOGI(TAG, "Initializing bacnet_io link and Waveshare IO");
+    bacnet_io_link_init();
+
     ESP_LOGI(TAG, "Broadcasting I-Am");
     if (USER_ENABLE_BACNET_IP) {
         bacnet_datalink_lock(datalink_bip);
@@ -376,9 +392,20 @@ void app_main(void)
         bacnet_datalink_unlock();
     }
 
+    /* Start BACnet IO link task to sync BO->DO and DI->BI periodically */
+    if (xTaskCreate(bacnet_io_link_task, "bacnet_io", 4096, NULL, tskIDLE_PRIORITY + 2, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "Failed to create bacnet_io_link task");
+    } else {
+        ESP_LOGI(TAG, "bacnet_io_link task started");
+    }
+
     /* Initialize display */
     ESP_LOGI(TAG, "Initializing display");
+#if !SKIP_PERIPHERALS
     display_init();
+#else
+    ESP_LOGI(TAG, "Display init skipped (TFT disabled)");
+#endif
 
     /* Start BACnet receive task to handle incoming messages */
     if (USER_ENABLE_BACNET_IP) {
@@ -386,17 +413,25 @@ void app_main(void)
             ESP_LOGE(TAG, "Failed to create bacnet_rx task");
         }
     }
+#if !SKIP_PERIPHERALS
     if (USER_ENABLE_BACNET_MSTP) {
         if (xTaskCreate(bacnet_mstp_receive_task, "bacnet_mstp_rx", 12288, NULL, 5, NULL) != pdPASS) {
             ESP_LOGE(TAG, "Failed to create bacnet_mstp_rx task");
         }
     }
+#else
+    (void)bacnet_mstp_receive_task; /* keep symbol referenced when disabled */
+#endif
     if (xTaskCreate(bacnet_cov_task, "bacnet_cov", 24576, NULL, 4, &bacnet_cov_task_handle) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create bacnet_cov task");
     }
+#if !SKIP_PERIPHERALS
     if (xTaskCreate(sen54_task, "sen54", 4096, NULL, 3, NULL) != pdPASS) {
         ESP_LOGE(TAG, "Failed to create sen54 task");
     }
+#else
+    ESP_LOGI(TAG, "SEN54 task creation skipped (sensor disabled)");
+#endif
 
     if (USER_ENABLE_BACNET_MSTP) {
         ESP_LOGI(TAG, "BACnet MS/TP ready");
