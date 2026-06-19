@@ -1,0 +1,7 @@
+# Name,   Type, SubType, Offset,   Size, Flags
+nvs,      data, nvs,     0x9000,   0x7000,
+# OTADATA not used for single-app builds
+# Application partition (factory)
+app0,     app,  factory, 0x10000,  0x300000,
+# FATFS partition (~9.9 MB)
+fatfs,    data, fat,     0x310000, 0x9F0000,

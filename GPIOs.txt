@@ -1,0 +1,27 @@
+BACnet/IP
+----------
+W5500 Ethernet
+GPIO13 MOSI
+GPIO14 MISO
+GPIO15 SCLK
+GPIO16 CS
+GPIO12 INT
+GPIO39 RESET
+
+BACnet MS/TP
+------------
+UART2 TX = GPIO17
+UART2 RX = GPIO18
+DE/RE   = GPIO21
+
+Binary Inputs
+-------------
+GPIO4..GPIO11
+
+Binary Outputs
+--------------
+TCA9554 EXIO1..EXIO8
+
+RTC
+----
+GPIO41/42
