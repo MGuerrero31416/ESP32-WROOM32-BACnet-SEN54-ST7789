@@ -1,0 +1,183 @@
+#include "mstp_rs485.h"
+
+#include "driver/gpio.h"
+#include "driver/uart.h"
+#include "esp_log.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+#define MSTP_UART_PORT UART_NUM_2
+#define MSTP_UART_TX_PIN GPIO_NUM_17
+#define MSTP_UART_RX_PIN GPIO_NUM_16
+#define MSTP_UART_DE_PIN GPIO_NUM_18   // 🔥 CHANGED FROM GPIO5 (IMPORTANT FIX)
+
+#define MSTP_UART_BAUD_DEFAULT 38400U
+#define MSTP_UART_RX_BUF_SIZE 512
+#define MSTP_UART_TX_BUF_SIZE 512
+#define MSTP_UART_TX_TIMEOUT_MS 1000
+
+// RS485 timing safety (BACnet MS/TP needs stability)
+#define MSTP_DE_SETUP_DELAY_US 5
+#define MSTP_DE_HOLD_DELAY_US  50
+
+static const char *TAG = "mstp_rs485";
+
+static bool mstp_uart_initialized = false;
+static volatile bool mstp_tx_in_progress = false;
+static uint32_t mstp_baud_rate = MSTP_UART_BAUD_DEFAULT;
+static int64_t mstp_last_activity_us = 0;
+
+static void mstp_rs485_set_de(int level)
+{
+    gpio_set_level(MSTP_UART_DE_PIN, level);
+    esp_rom_delay_us(MSTP_DE_SETUP_DELAY_US);
+}
+
+void MSTP_RS485_Init(void)
+{
+    if (mstp_uart_initialized) {
+        return;
+    }
+
+    ESP_LOGI(TAG, "Initializing MS/TP RS485 driver");
+
+    // ---------------- GPIO CONFIG ----------------
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << MSTP_UART_DE_PIN),
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE
+    };
+
+    ESP_ERROR_CHECK(gpio_config(&io_conf));
+
+    // SAFE STATE: RECEIVE MODE
+    mstp_rs485_set_de(0);
+
+    // ---------------- UART CONFIG ----------------
+    uart_config_t config = {
+        .baud_rate = (int)mstp_baud_rate,
+        .data_bits = UART_DATA_8_BITS,
+        .parity = UART_PARITY_DISABLE,
+        .stop_bits = UART_STOP_BITS_1,
+        .flow_ctrl = UART_HW_FLOWCTRL_DISABLE,
+        .source_clk = UART_SCLK_DEFAULT
+    };
+
+    ESP_ERROR_CHECK(uart_param_config(MSTP_UART_PORT, &config));
+
+    ESP_ERROR_CHECK(uart_set_pin(
+        MSTP_UART_PORT,
+        MSTP_UART_TX_PIN,
+        MSTP_UART_RX_PIN,
+        UART_PIN_NO_CHANGE,
+        UART_PIN_NO_CHANGE));
+
+    ESP_ERROR_CHECK(uart_driver_install(
+        MSTP_UART_PORT,
+        MSTP_UART_RX_BUF_SIZE,
+        MSTP_UART_TX_BUF_SIZE,
+        0,
+        NULL,
+        0));
+
+    mstp_last_activity_us = esp_timer_get_time();
+    mstp_uart_initialized = true;
+
+    ESP_LOGI(TAG,
+        "MS/TP UART initialized TX=%d RX=%d DE=%d baud=%lu",
+        MSTP_UART_TX_PIN,
+        MSTP_UART_RX_PIN,
+        MSTP_UART_DE_PIN,
+        (unsigned long)mstp_baud_rate);
+}
+
+void MSTP_RS485_Send(const uint8_t *payload, uint16_t len)
+{
+    if (!payload || len == 0) return;
+
+    if (!mstp_uart_initialized) {
+        MSTP_RS485_Init();
+    }
+
+    mstp_tx_in_progress = true;
+
+    // ---------------- ENTER TX MODE ----------------
+    mstp_rs485_set_de(1);
+    esp_rom_delay_us(10); // allow driver enable
+
+    // ---------------- SEND ----------------
+    int written = uart_write_bytes(MSTP_UART_PORT, payload, len);
+    if (written < 0) {
+        ESP_LOGE(TAG, "UART write failed");
+    }
+
+    uart_wait_tx_done(MSTP_UART_PORT, pdMS_TO_TICKS(MSTP_UART_TX_TIMEOUT_MS));
+
+    // IMPORTANT: guard time before disabling DE (MS/TP requirement)
+    esp_rom_delay_us(MSTP_DE_HOLD_DELAY_US);
+
+    // ---------------- BACK TO RX MODE ----------------
+    mstp_rs485_set_de(0);
+
+    mstp_tx_in_progress = false;
+    mstp_last_activity_us = esp_timer_get_time();
+}
+
+bool MSTP_RS485_Read(uint8_t *buf)
+{
+    if (!mstp_uart_initialized) {
+        MSTP_RS485_Init();
+    }
+
+    if (!buf) {
+        size_t buffered_len = 0;
+        return uart_get_buffered_data_len(MSTP_UART_PORT, &buffered_len) == ESP_OK
+            && buffered_len > 0;
+    }
+
+    int len = uart_read_bytes(MSTP_UART_PORT, buf, 1, 0);
+
+    if (len > 0) {
+        mstp_last_activity_us = esp_timer_get_time();
+        return true;
+    }
+
+    return false;
+}
+
+bool MSTP_RS485_Transmitting(void)
+{
+    return mstp_tx_in_progress;
+}
+
+uint32_t MSTP_RS485_Baud_Rate(void)
+{
+    return mstp_baud_rate;
+}
+
+bool MSTP_RS485_Baud_Rate_Set(uint32_t baud)
+{
+    if (baud == 0) return false;
+
+    mstp_baud_rate = baud;
+
+    if (mstp_uart_initialized) {
+        ESP_ERROR_CHECK(uart_set_baudrate(MSTP_UART_PORT, (int)baud));
+    }
+
+    return true;
+}
+
+uint32_t MSTP_RS485_Silence_Milliseconds(void)
+{
+    int64_t now = esp_timer_get_time();
+    return (uint32_t)((now - mstp_last_activity_us) / 1000);
+}
+
+void MSTP_RS485_Silence_Reset(void)
+{
+    mstp_last_activity_us = esp_timer_get_time();
+}

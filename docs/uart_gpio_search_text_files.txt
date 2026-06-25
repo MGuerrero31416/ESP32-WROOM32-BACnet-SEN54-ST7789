@@ -1,0 +1,23 @@
+components\bacnet-stack\ports\arduino_uno\external\Arduino\core\include\HardwareSerial.h
+components\peripherals\pms5003\pms5003.c
+components\pms5003\pms5003.c
+components\TFT_eSPI\User_Setup_Select.h
+main\mstp_rs485 copy.c_BAK
+main\mstp_rs485.c
+managed_components\espressif__arduino-esp32\cores\esp32\esp32-hal-uart.c
+managed_components\espressif__arduino-esp32\cores\esp32\HardwareSerial.cpp
+managed_components\espressif__arduino-esp32\cores\esp32\HardwareSerial.h
+managed_components\espressif__arduino-esp32\libraries\ESP32\examples\Serial\Serial_STD_Func_OnReceive\Serial_STD_Func_OnReceive.ino
+managed_components\espressif__arduino-esp32\libraries\Ethernet\src\ETH.h
+managed_components\espressif__arduino-esp32\libraries\RainMaker\examples\RMakerCustom\README.md
+managed_components\espressif__arduino-esp32\libraries\RainMaker\examples\RMakerSwitch\README.md
+managed_components\espressif__esp_modem\private_include\uart_compat.h
+managed_components\espressif__esp_modem\src\esp_modem_term_uart.cpp
+managed_components\espressif__esp_modem\src\esp_modem_uart.cpp
+managed_components\espressif__esp-modbus\freemodbus\port\portserial.c
+managed_components\espressif__esp-modbus\freemodbus\port\portserial_m.c
+managed_components\espressif__esp-serial-flasher\examples\esp32_load_ram_example\main\main.c
+managed_components\espressif__esp-serial-flasher\port\esp32_port.c
+managed_components\espressif__esp-zigbee-lib\src\radio_spinel\esp_zigbee_radio_spinel_uart.c
+managed_components\espressif__rmaker_common\src\console\rmaker_console.c
+README.md

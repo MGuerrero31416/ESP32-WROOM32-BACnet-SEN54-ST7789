@@ -122,15 +122,15 @@ void sen54_init(void)
 
             vTaskDelay(pdMS_TO_TICKS(100));
 
-                       //     sen54_data_t test_data;
-                       //     bool ok = sen54_read(&test_data);
-                       //     ESP_LOGI(TAG, "First read result = %s", ok ? "OK" : "FAILED");
+                            sen54_data_t test_data;
+                            bool ok = sen54_read(&test_data);
+                            ESP_LOGI(TAG, "First read result = %s", ok ? "OK" : "FAILED");
 
             break;
         }
-        ESP_LOGW(TAG, "Start measurement attempt %d/20 failed: %s — retrying in 500 ms",
-                 attempt, esp_err_to_name(err));
-        vTaskDelay(pdMS_TO_TICKS(500));
+    //    ESP_LOGW(TAG, "Start measurement attempt %d/20 failed: %s — retrying in 500 ms",
+    //             attempt, esp_err_to_name(err));
+    //    vTaskDelay(pdMS_TO_TICKS(500));
     }
 
     if (err != ESP_OK) {

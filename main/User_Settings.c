@@ -11,8 +11,8 @@ const char USER_WIFI_STATIC_IP_GATEWAY[] = "10.210.245.254";
 const char USER_WIFI_STATIC_IP_NETMASK[] = "255.255.255.0";
 
 /* BACnet device settings */
-const char USER_BACNET_DEVICE_NAME[] = "ESP32 (55501)";
-const uint32_t USER_BACNET_DEVICE_INSTANCE = 55501;
+const char USER_BACNET_DEVICE_NAME[] = "ESP32_55596";
+const uint32_t USER_BACNET_DEVICE_INSTANCE = 55596;
 const int USER_OVERRIDE_NVS_ON_FLASH = 0;
 
 /* BBMD foreign device registration */
@@ -25,10 +25,11 @@ const uint16_t USER_BBMD_TTL_SECONDS = 600;
 
 /* BACnet MS/TP settings */
 const bool USER_ENABLE_BACNET_MSTP = true;
-const uint8_t USER_MSTP_MAC_ADDRESS = 21;
+const uint8_t USER_MSTP_MAC_ADDRESS = 96;
 const uint8_t USER_MSTP_MAX_INFO_FRAMES = 80;
 const uint8_t USER_MSTP_MAX_MASTER = 127;
 const uint32_t USER_MSTP_BAUD_RATE = 38400U;
+const bool USER_MSTP_AUTO_BAUD = false;
 
 /* BACnet object defaults */
 const uint32_t USER_AV_INSTANCES[USER_AV_COUNT] = { 1, 2, 3, 4, 5, 6, 7 };

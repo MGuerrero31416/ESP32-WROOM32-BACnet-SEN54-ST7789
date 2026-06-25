@@ -45,6 +45,8 @@
 #include "bacnet/basic/service/h_iam.h"
 #include "bacnet/basic/service/h_cov.h"
 #include "bacnet/basic/service/s_whois.h"
+#include "bacnet/whois.h"
+#include "bacnet/iam.h"
 #include "bacnet/npdu.h"
 #include "bacnet/basic/npdu/h_npdu.h"
 #include "bacnet/bacenum.h"
@@ -115,8 +117,48 @@ static void bacnet_log_whois_iam(const uint8_t *apdu, int apdu_len, const char *
     }
 
     uint8_t service_choice = apdu[1];
-    (void)service_choice;
-    (void)link;
+    if (service_choice == SERVICE_UNCONFIRMED_WHO_IS) {
+        int32_t low_limit = -1;
+        int32_t high_limit = -1;
+        int len = whois_decode_service_request(
+            &apdu[2], (unsigned)(apdu_len - 2), &low_limit, &high_limit);
+        if (len >= 0) {
+            bool in_range = true;
+            if (low_limit >= 0 && high_limit >= 0) {
+                uint32_t instance = USER_BACNET_DEVICE_INSTANCE;
+                in_range = (instance >= (uint32_t)low_limit &&
+                    instance <= (uint32_t)high_limit);
+            }
+            ESP_LOGI(
+                TAG,
+                "%s Who-Is low=%ld high=%ld local_instance=%lu match=%s",
+                link,
+                (long)low_limit,
+                (long)high_limit,
+                (unsigned long)USER_BACNET_DEVICE_INSTANCE,
+                in_range ? "yes" : "no");
+        } else {
+            ESP_LOGW(TAG, "%s Who-Is decode failed len=%d", link, apdu_len);
+        }
+    } else if (service_choice == SERVICE_UNCONFIRMED_I_AM) {
+        uint32_t device_id = BACNET_MAX_INSTANCE;
+        unsigned max_apdu = 0;
+        int segmentation = SEGMENTATION_NONE;
+        uint16_t vendor_id = 0;
+        int len = iam_decode_service_request(
+            &apdu[2], &device_id, &max_apdu, &segmentation, &vendor_id);
+        if (len >= 0) {
+            ESP_LOGI(
+                TAG,
+                "%s I-Am device=%lu vendor=%u max_apdu=%u",
+                link,
+                (unsigned long)device_id,
+                (unsigned)vendor_id,
+                max_apdu);
+        } else {
+            ESP_LOGW(TAG, "%s I-Am decode failed len=%d", link, apdu_len);
+        }
+    }
 }
 
 static char datalink_bip[] = "bip";
@@ -175,7 +217,17 @@ static bool bacnet_mstp_init(void)
     dlmstp_set_max_info_frames(USER_MSTP_MAX_INFO_FRAMES);
     dlmstp_set_max_master(USER_MSTP_MAX_MASTER);
     dlmstp_set_baud_rate(USER_MSTP_BAUD_RATE);
+    dlmstp_check_auto_baud_set(USER_MSTP_AUTO_BAUD);
     dlmstp_slave_mode_enabled_set(false);
+
+    ESP_LOGI(
+        TAG,
+        "MS/TP config: mac=%u max_master=%u max_info=%u baud=%lu auto_baud=%s",
+        (unsigned)USER_MSTP_MAC_ADDRESS,
+        (unsigned)USER_MSTP_MAX_MASTER,
+        (unsigned)USER_MSTP_MAX_INFO_FRAMES,
+        (unsigned long)USER_MSTP_BAUD_RATE,
+        USER_MSTP_AUTO_BAUD ? "on" : "off");
 
     return dlmstp_init((char *)&mstp_port);
 }
@@ -400,6 +452,7 @@ void app_main(void)
 
     if (USER_ENABLE_BACNET_MSTP) {
         ESP_LOGI(TAG, "BACnet MS/TP ready");
+        dlmstp_reset_statistics();
     }
 
     /* Keep the task alive - maintenance + display updates */
@@ -422,12 +475,36 @@ void app_main(void)
         }
 
         if (USER_ENABLE_BACNET_MSTP && ++mstp_rx_tick % 30 == 0) {
-            MSTP_RS485_Rx_Bytes_Get_Reset();
-            MSTP_RS485_Preamble_Counts_Get_Reset(NULL, NULL);
+            uint32_t rx_bytes = MSTP_RS485_Rx_Bytes_Get_Reset();
+            uint32_t preamble_55 = 0;
+            uint32_t preamble_55ff = 0;
+            struct dlmstp_statistics mstp_stats = {0};
+            MSTP_RS485_Preamble_Counts_Get_Reset(&preamble_55, &preamble_55ff);
+            dlmstp_fill_statistics(&mstp_stats);
+            ESP_LOGI(
+                TAG,
+                "MS/TP 30s stats: rx_bytes=%lu preamble55=%lu preamble55ff=%lu pdu=%lu apdu=%lu rp=%lu wp=%lu valid=%lu invalid=%lu not_for_us=%lu bad_crc=%lu tx_frames=%lu rx_pdu=%lu poll=%lu lost_token=%lu sole_master=%d",
+                (unsigned long)rx_bytes,
+                (unsigned long)preamble_55,
+                (unsigned long)preamble_55ff,
+                (unsigned long)mstp_pdu_count,
+                (unsigned long)mstp_apdu_count,
+                (unsigned long)mstp_rp_total,
+                (unsigned long)mstp_wp_total,
+                (unsigned long)mstp_stats.receive_valid_frame_counter,
+                (unsigned long)mstp_stats.receive_invalid_frame_counter,
+                (unsigned long)mstp_stats.receive_valid_frame_not_for_us_counter,
+                (unsigned long)mstp_stats.bad_crc_counter,
+                (unsigned long)mstp_stats.transmit_frame_counter,
+                (unsigned long)mstp_stats.receive_pdu_counter,
+                (unsigned long)mstp_stats.poll_for_master_counter,
+                (unsigned long)mstp_stats.lost_token_counter,
+                dlmstp_sole_master() ? 1 : 0);
             mstp_pdu_count = 0;
             mstp_apdu_count = 0;
             mstp_rp_total = 0;
             mstp_wp_total = 0;
+            dlmstp_reset_statistics();
         }
 
         if (USER_ENABLE_BACNET_MSTP) {

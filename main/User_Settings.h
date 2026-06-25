@@ -32,6 +32,7 @@ extern const uint8_t USER_MSTP_MAC_ADDRESS;
 extern const uint8_t USER_MSTP_MAX_INFO_FRAMES;
 extern const uint8_t USER_MSTP_MAX_MASTER;
 extern const uint32_t USER_MSTP_BAUD_RATE;
+extern const bool USER_MSTP_AUTO_BAUD;
 
 /* BACnet object defaults */
 #define USER_AV_COUNT 7

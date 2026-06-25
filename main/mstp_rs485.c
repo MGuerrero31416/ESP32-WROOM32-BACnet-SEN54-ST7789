@@ -7,8 +7,8 @@
 #include "freertos/FreeRTOS.h"
 
 #define MSTP_UART_PORT UART_NUM_2
-#define MSTP_UART_TX_PIN GPIO_NUM_16
-#define MSTP_UART_RX_PIN GPIO_NUM_17
+#define MSTP_UART_TX_PIN GPIO_NUM_17
+#define MSTP_UART_RX_PIN GPIO_NUM_16
 #define MSTP_UART_DE_PIN GPIO_NUM_5
 #define MSTP_UART_BAUD_DEFAULT 38400U
 #define MSTP_UART_RX_BUF_SIZE 512
@@ -24,6 +24,15 @@ static volatile uint32_t mstp_rx_bytes = 0;
 static volatile uint32_t mstp_preamble_55 = 0;
 static volatile uint32_t mstp_preamble_55ff = 0;
 static uint8_t mstp_prev_byte = 0;
+static volatile uint32_t mstp_tx_frame_count = 0;
+
+/* Rate-limit timestamps for TX control-frame logging (microseconds) */
+static int64_t mstp_tx_token_log_us = 0;
+static int64_t mstp_tx_pfm_log_us = 0;
+static int64_t mstp_tx_rpfm_log_us = 0;
+static volatile uint32_t mstp_tx_token_count = 0;
+static volatile uint32_t mstp_tx_pfm_count = 0;
+static volatile uint32_t mstp_tx_rpfm_count = 0;
 
 static void mstp_rs485_set_tx_mode(bool enabled)
 {
@@ -97,6 +106,64 @@ void MSTP_RS485_Send(const uint8_t *payload, uint16_t payload_len)
     if (!mstp_uart_initialized) {
         MSTP_RS485_Init();
     }
+
+    /* --- TX diagnostics --- */
+    mstp_tx_frame_count++;
+    if (payload_len >= 8 && payload[0] == 0x55 && payload[1] == 0xFF) {
+        uint8_t ftype = payload[2];
+        uint8_t fdest = payload[3];
+        uint8_t fsrc  = payload[4];
+        uint16_t flen = ((uint16_t)payload[5] << 8) | payload[6];
+        int64_t now_us = esp_timer_get_time();
+
+        if (ftype == 0x00) { /* TOKEN */
+            mstp_tx_token_count++;
+            if ((now_us - mstp_tx_token_log_us) >= 5000000LL) {
+                ESP_LOGI(TAG, "TX TOKEN dst=%u src=%u count=%lu",
+                         fdest, fsrc, (unsigned long)mstp_tx_token_count);
+                mstp_tx_token_log_us = now_us;
+            }
+        } else if (ftype == 0x01) { /* POLL_FOR_MASTER */
+            mstp_tx_pfm_count++;
+            if ((now_us - mstp_tx_pfm_log_us) >= 5000000LL) {
+                ESP_LOGI(TAG, "TX POLL_FOR_MASTER dst=%u src=%u count=%lu",
+                         fdest, fsrc, (unsigned long)mstp_tx_pfm_count);
+                mstp_tx_pfm_log_us = now_us;
+            }
+        } else if (ftype == 0x02) { /* REPLY_TO_POLL_FOR_MASTER */
+            mstp_tx_rpfm_count++;
+            if ((now_us - mstp_tx_rpfm_log_us) >= 5000000LL) {
+                ESP_LOGI(TAG, "TX REPLY_TO_PFM dst=%u src=%u count=%lu",
+                         fdest, fsrc, (unsigned long)mstp_tx_rpfm_count);
+                mstp_tx_rpfm_log_us = now_us;
+            }
+        } else {
+            /* Data frames and other types: log every frame */
+            ESP_LOGI(TAG, "TX frm#%lu type=0x%02X dst=%u src=%u dlen=%u plen=%u",
+                     (unsigned long)mstp_tx_frame_count, ftype, fdest, fsrc,
+                     flen, payload_len);
+            /* Hex dump first 16 bytes */
+            uint16_t dump_len = payload_len < 16u ? payload_len : 16u;
+            char hex_buf[49]; /* 16*3 + 1 */
+            for (uint16_t i = 0; i < dump_len; i++) {
+                sprintf(&hex_buf[i * 3], "%02X ", payload[i]);
+            }
+            hex_buf[dump_len * 3 > 0 ? dump_len * 3 - 1 : 0] = '\0';
+            ESP_LOGI(TAG, "TX hex[%u]: %s", dump_len, hex_buf);
+        }
+    } else {
+        /* Malformed or raw frame */
+        ESP_LOGW(TAG, "TX frm#%lu plen=%u (no preamble)",
+                 (unsigned long)mstp_tx_frame_count, payload_len);
+        uint16_t dump_len = payload_len < 16u ? payload_len : 16u;
+        char hex_buf[49];
+        for (uint16_t i = 0; i < dump_len; i++) {
+            sprintf(&hex_buf[i * 3], "%02X ", payload[i]);
+        }
+        hex_buf[dump_len * 3 > 0 ? dump_len * 3 - 1 : 0] = '\0';
+        ESP_LOGW(TAG, "TX hex[%u]: %s", dump_len, hex_buf);
+    }
+    /* --- end TX diagnostics --- */
 
     mstp_tx_in_progress = true;
     mstp_rs485_set_tx_mode(true);
@@ -200,4 +267,11 @@ void MSTP_RS485_Preamble_Counts_Get_Reset(uint32_t *preamble55, uint32_t *preamb
     }
     mstp_preamble_55 = 0;
     mstp_preamble_55ff = 0;
+}
+
+uint32_t MSTP_RS485_Tx_Frame_Count_Get_Reset(void)
+{
+    uint32_t count = mstp_tx_frame_count;
+    mstp_tx_frame_count = 0;
+    return count;
 }
