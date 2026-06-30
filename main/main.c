@@ -129,6 +129,7 @@ static void bacnet_log_whois_iam(const uint8_t *apdu, int apdu_len, const char *
                 in_range = (instance >= (uint32_t)low_limit &&
                     instance <= (uint32_t)high_limit);
             }
+            /*
             ESP_LOGI(
                 TAG,
                 "%s Who-Is low=%ld high=%ld local_instance=%lu match=%s",
@@ -137,8 +138,12 @@ static void bacnet_log_whois_iam(const uint8_t *apdu, int apdu_len, const char *
                 (long)high_limit,
                 (unsigned long)USER_BACNET_DEVICE_INSTANCE,
                 in_range ? "yes" : "no");
+            */
+            (void)in_range;
+            (void)low_limit;
+            (void)high_limit;
         } else {
-            ESP_LOGW(TAG, "%s Who-Is decode failed len=%d", link, apdu_len);
+            /* ESP_LOGW(TAG, "%s Who-Is decode failed len=%d", link, apdu_len); */
         }
     } else if (service_choice == SERVICE_UNCONFIRMED_I_AM) {
         uint32_t device_id = BACNET_MAX_INSTANCE;
