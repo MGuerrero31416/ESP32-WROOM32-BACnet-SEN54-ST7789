@@ -98,6 +98,7 @@ extern "C" void display_update_footer(
     const char *ip_address)
 {
     char footer_text[40];
+    static char last_footer_text[40] = {0};
     (void)ip_address;
 
     snprintf(
@@ -106,6 +107,13 @@ extern "C" void display_update_footer(
         "ID: %u MAC: %u",
         bacnet_device_id,
         mstp_mac_address);
+
+    if (strcmp(footer_text, last_footer_text) == 0) {
+        return;
+    }
+
+    strncpy(last_footer_text, footer_text, sizeof(last_footer_text) - 1);
+    last_footer_text[sizeof(last_footer_text) - 1] = '\0';
 
     tft.fillRect(0, FOOTER_Y, FOOTER_WIDTH, FOOTER_HEIGHT, TFT_BLACK);
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
