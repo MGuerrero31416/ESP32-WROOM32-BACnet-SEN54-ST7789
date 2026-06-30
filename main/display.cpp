@@ -104,7 +104,7 @@ extern "C" void display_update_footer(
     snprintf(
         footer_text,
         sizeof(footer_text),
-        "ID: %u MAC: %u",
+        "ID:%u MAC:%u",
         bacnet_device_id,
         mstp_mac_address);
 
